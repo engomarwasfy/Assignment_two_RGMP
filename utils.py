@@ -24,7 +24,7 @@ import argparse
 import glob
 
 # constants
-DAVIS_ROOT = '/disk2/data/DAVIS/'
+DAVIS_ROOT = '/content/davis/data/DAVIS'
 PALETTE = [
   0, 0, 0,
   31, 119, 180,
