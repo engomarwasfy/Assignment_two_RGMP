@@ -170,10 +170,10 @@ def bptt_hsm(data, hidden, target, model, criterion, bptt_len, bptt_step):
         
 if __name__ == '__main__':
     args = parse_args()
-    Trainset = DAVIS(DAVIS_ROOT, imset='2017/train.txt')
+    Trainset = DAVIS(DAVIS_ROOT, imset='2016/train.txt')
     Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=1)
     
-    Testset = DAVIS(DAVIS_ROOT, imset='2017/val.txt')
+    Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
     Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=1)
 
     model = RGMP()
