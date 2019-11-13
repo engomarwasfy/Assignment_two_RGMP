@@ -14,14 +14,7 @@ from tensorboardX import SummaryWriter
 MODEL_DIR = 'saved_models'
 NUM_EPOCHS = 1000
 
-def Propagate_MS(ms, model, F2, P2=[0.5, 0.75, 1.0]):
-    h, w = F2.size()[1], F2.size()[2]
-    
-    msv_F2, msv_P2 = ToCudaVariable([model, F2])
-    r5, r4, r3, r2  = model.Encoder(msv_F2, msv_P2)
-    e2 = model.Decoder(r5, ms, r4, r3, r2)
 
-    return F.softmax(e2[0], dim=1)[:,1], r5
 
 def parse_args():
     """
