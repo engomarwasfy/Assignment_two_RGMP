@@ -8,6 +8,7 @@ from GlobalConvolution import GC
 from RefinementLayers import Refine
 from RGMP import RGMP
 from utils import *
+from run import *
 from tensorboardX import SummaryWriter
 
 # Constants
