@@ -2,11 +2,9 @@ import torch
 import argparse, threading, time
 import numpy as np
 from tqdm import tqdm
-from Encoder import Encoder 
-from Decoder import Decoder
 from GlobalConvolution import GC
 from RefinementLayers import Refine
-from RGMP import RGMP as model
+from RGMP import RGMP 
 from utils import *
 from tensorboardX import SummaryWriter
 
