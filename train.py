@@ -235,7 +235,7 @@ if __name__ == '__main__':
                     ms = model.Encoder(msv_F1, msv_P1)[0]
 
                     for f in range(0, all_M.shape[2] - 1):
-                        output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f],all_M[:,0,f])
+                        output, ms = Propagate_MS(ms,model ,all_F[:,:,f+1], all_E[:,0,f])
                         all_E[:,0,f+1] = output.detach()
                         loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float()) / all_M.size(2)
                     iOU = iOU + iou(torch.cat((1-all_E, all_E), dim=1), all_M)
