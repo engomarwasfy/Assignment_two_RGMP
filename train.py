@@ -6,7 +6,7 @@ from Encoder import Encoder
 from Decoder import Decoder
 from GlobalConvolution import GC
 from RefinementLayers import Refine
-from RGMP import RGMP
+from RGMP import RGMP as model
 from utils import *
 from tensorboardX import SummaryWriter
 
