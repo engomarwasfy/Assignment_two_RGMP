@@ -281,7 +281,7 @@ if __name__ == '__main__':
             loss = 0
             counter = 0
             for f in range(0, num_bptt - 1):
-                output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f],all_M[:,0,f])
+                output, ms = Propagate_MS(ms,model ,all_F[:,:,f+1], all_E[:,0,f])
                 all_E[:,0,f+1] = output.detach()
                 loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float())
                 counter += 1
