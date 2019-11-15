@@ -14,6 +14,14 @@ from tensorboardX import SummaryWriter
 MODEL_DIR = 'saved_models'
 NUM_EPOCHS = 1000
 
+def Propagate_MS(ms, model, F2, P2):
+    h, w = F2.size()[1], F2.size()[2]
+    
+    msv_F2, msv_P2 = ToCudaVariable([F2, P2])
+    r5, r4, r3, r2  = model.Encoder(msv_F2, msv_P2)
+    e2 = model.Decoder(r5, ms, r4, r3, r2)
+
+    return F.softmax(e2[0], dim=1)[:,1], r5
 
 
 def parse_args():
@@ -229,7 +237,7 @@ if __name__ == '__main__':
                     ms = model.Encoder(msv_F1, msv_P1)[0]
 
                     for f in range(0, all_M.shape[2] - 1):
-                        output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f])
+                        output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f],all_M[:,0,f])
                         all_E[:,0,f+1] = output.detach()
                         loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float()) / all_M.size(2)
                     iOU = iOU + iou(torch.cat((1-all_E, all_E), dim=1), all_M)
@@ -275,7 +283,7 @@ if __name__ == '__main__':
             loss = 0
             counter = 0
             for f in range(0, num_bptt - 1):
-                output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f])
+                output, ms = Propagate_MS(ms, all_F[:,:,f+1], all_E[:,0,f],all_M[:,0,f])
                 all_E[:,0,f+1] = output.detach()
                 loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float())
                 counter += 1
