@@ -2,20 +2,22 @@ import torch
 import argparse, threading, time
 import numpy as np
 from tqdm import tqdm
-from Encoder import Encoder 
-from Decoder import Decoder
-from GlobalConvolution import GC
-from RefinementLayers import Refine
-from RGMP import RGMP
+from model import *
 from utils import *
-from run import *
 from tensorboardX import SummaryWriter
 
 # Constants
 MODEL_DIR = 'saved_models'
 NUM_EPOCHS = 1000
 
+def Propagate_MS(ms, model, F2, P2):
+    h, w = F2.size()[2], F2.size()[3]
+    
+    msv_F2, msv_P2 = ToCudaVariable([F2, P2])
+    r5, r4, r3, r2  = model.Encoder(msv_F2, msv_P2)
+    e2 = model.Decoder(r5, ms, r4, r3, r2)
 
+    return F.softmax(e2[0], dim=1)[:,1], r5
 
 def parse_args():
     """
@@ -165,10 +167,10 @@ def bptt_hsm(data, hidden, target, model, criterion, bptt_len, bptt_step):
 if __name__ == '__main__':
     args = parse_args()
     Trainset = DAVIS(DAVIS_ROOT, imset='2016/train.txt')
-    Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=1)
+    Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=2)
     
     Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
-    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=1)
+    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=2)
 
     model = RGMP()
     if torch.cuda.is_available():
@@ -311,4 +313,3 @@ if __name__ == '__main__':
                         'optimizer': optimizer.state_dict(),
                        },
                        save_name)
-
