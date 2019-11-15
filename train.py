@@ -9,7 +9,7 @@ from utils import *
 from tensorboardX import SummaryWriter
 
 # Constants
-MODEL_DIR = 'saved_models'
+MODEL_DIR = '/content/drive/My Drive/All/omarwasfy/Master/Deep learning applications on image and video segmentation /RGMP/check_points'
 NUM_EPOCHS = 1000
 
 def Propagate_MS(ms, model, F2, P2):
