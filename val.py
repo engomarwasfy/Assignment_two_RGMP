@@ -3,7 +3,7 @@ import torch
 import argparse, threading, time
 import numpy as np
 from tqdm import tqdm
-from model import *
+from RGMP import RGMP
 from utils import *
 from tensorboardX import SummaryWriter
 from train import *
@@ -11,16 +11,16 @@ from train import *
 if __name__ == '__main__':
     
     model = RGMP().cuda()
-    Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
-    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=2)
+    Testset = DAVIS(DAVIS_ROOT, imset='2017/val.txt')
+    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=1)
     
     best_iou = 0
     writer = SummaryWriter()
-    for epoch in np.sort([int(d.split('.')[0]) for d in os.listdir('saved_models')]):
+    for epoch in np.sort([int(d.split('.')[0]) for d in os.listdir('/content/drive/My Drive/All/omarwasfy/Master/Deep learning applications on image and video segmentation /RGMP/check_points')]):
         d = '{}.pth'.format(epoch)
         # load saved model if specified
         print('Loading checkpoint {}@Epoch {}{}...'.format(font.BOLD, d, font.END))
-        load_name = os.path.join('saved_models',
+        load_name = os.path.join('/content/drive/My Drive/All/omarwasfy/Master/Deep learning applications on image and video segmentation /RGMP/check_points',
           '{}.pth'.format(epoch))
         state = model.state_dict()
         checkpoint = torch.load(load_name)
