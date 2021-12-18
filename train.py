@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument('--output_dir', dest='output_dir',
                       help='output directory',
                       default=MODEL_DIR, type=str)
-    
+
     # BPTT
     parser.add_argument('--bptt', dest='bptt_len',
                       help='length of BPTT',
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--bptt_step', dest='bptt_step',
                       help='step of truncated BPTT',
                       default=4, type=int)
-    
+
     # config optimization
     parser.add_argument('--o', dest='optimizer',
                       help='training optimizer',
@@ -72,9 +72,8 @@ def parse_args():
     parser.add_argument('--loadepoch', dest='loadepoch',
                       help='epoch to load model',
                       default=-1, type=int)
-    
-    args = parser.parse_args()
-    return args    
+
+    return parser.parse_args()    
     
 def log_mask(frames, masks, info, writer, F_name='Train/frames', M_name='Train/masks'):
     print('[tensorboard] Updating mask..')
@@ -171,7 +170,7 @@ if __name__ == '__main__':
     args = parse_args()
     Trainset = DAVIS(DAVIS_ROOT, imset='2016/train.txt')
     Trainloader = data.DataLoader(Trainset, batch_size=1, shuffle=True, num_workers=1)
-    
+
     Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
     Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=1)
 
@@ -181,7 +180,7 @@ if __name__ == '__main__':
 
     writer = SummaryWriter()
     start_epoch = 0
-    
+
     # load saved model if specified
     if args.loadepoch >= 0:
         print('Loading checkpoint {}@Epoch {}{}...'.format(font.BOLD, args.loadepoch, font.END))
@@ -193,25 +192,25 @@ if __name__ == '__main__':
         checkpoint = {k: v for k, v in checkpoint['model'].items() if k in state}
         state.update(checkpoint)
         model.load_state_dict(state)
-        if 'optimizer' in checkpoint.keys():
+        if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr = optimizer.param_groups[0]['lr']
-        if 'pooling_mode' in checkpoint.keys():
+        if 'pooling_mode' in checkpoint:
             POOLING_MODE = checkpoint['pooling_mode']
         del checkpoint
         torch.cuda.empty_cache()
         print('  - complete!')
-    
+
     # params
     params = []
-    for key, value in dict(model.named_parameters()).items():
-      if value.requires_grad:
-        params += [{'params':[value],'lr':args.lr, 'weight_decay': 4e-5}]
+    for value in dict(model.named_parameters()).values():
+        if value.requires_grad:
+          params += [{'params':[value],'lr':args.lr, 'weight_decay': 4e-5}]
 
     criterion = torch.nn.BCELoss()
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=0.9)
     iters_per_epoch = len(Trainloader)
-    for epoch in range(start_epoch, args.num_epochs):        
+    for epoch in range(start_epoch, args.num_epochs):    
         if epoch % args.eval_epoch == 1:
             # testing
             with torch.no_grad():
@@ -234,16 +233,19 @@ if __name__ == '__main__':
                     msv_F1, msv_P1, all_M = ToCudaVariable([all_F[:,:,0], all_E[:,0,0], all_M])
                     ms = model.Encoder(msv_F1, msv_P1)[0]
 
-                    for f in range(0, all_M.shape[2] - 1):
+                    for f in range(all_M.shape[2] - 1):
                         output, ms = Propagate_MS(ms,model ,all_F[:,:,f+1], all_E[:,0,f])
                         all_E[:,0,f+1] = output.detach()
-                        loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float()) / all_M.size(2)
-                    iOU = iOU + iou(torch.cat((1-all_E, all_E), dim=1), all_M)
+                        loss += criterion(
+                            output.permute(1, 2, 0), all_M[:, 0, f + 1].float()
+                        ) / all_M.size(2)
+
+                    iOU += iou(torch.cat((1-all_E, all_E), dim=1), all_M)
 
                 pbar.close()
-                
-                loss = loss / len(Testloader)
-                iOU = iOU / len(Testloader)
+
+                loss /= len(Testloader)
+                iOU /= len(Testloader)
                 writer.add_scalar('Val/BCE', loss, epoch)
                 writer.add_scalar('Val/IOU', iOU, epoch)
                 print('loss: {}'.format(loss))
@@ -251,7 +253,7 @@ if __name__ == '__main__':
 
                 video_thread = threading.Thread(target=log_mask, args=(all_F,all_E,info,writer,'Val/frames', 'Val/masks'))
                 video_thread.start()
-                
+
 
         # training
         model.train()
@@ -280,10 +282,10 @@ if __name__ == '__main__':
             num_bptt = all_M.shape[2]
             loss = 0
             counter = 0
-            for f in range(0, num_bptt - 1):
+            for f in range(num_bptt - 1):
                 output, ms = Propagate_MS(ms,model ,all_F[:,:,f+1], all_E[:,0,f])
                 all_E[:,0,f+1] = output.detach()
-                loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float())
+                loss += criterion(output.permute(1,2,0), all_M[:,0,f+1].float())
                 counter += 1
                 if (f+1) % args.bptt_step == 0:
                     optimizer.zero_grad()
@@ -297,7 +299,7 @@ if __name__ == '__main__':
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                
+
             # logging and display
             if (i+1) % args.disp_interval == 0:
                 writer.add_scalar('Train/BCE', loss/counter, i + epoch * iters_per_epoch)
@@ -307,7 +309,7 @@ if __name__ == '__main__':
             if epoch % 10 == 1 and i == 0:
                 video_thread = threading.Thread(target=log_mask, args=(all_F,all_E,info,writer))
                 video_thread.start()
-                                 
+
 
         if epoch % 10 == 0 and epoch > 0:
             save_name = '{}/{}.pth'.format(MODEL_DIR, epoch)

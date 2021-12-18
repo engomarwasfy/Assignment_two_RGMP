@@ -47,11 +47,9 @@ def Encode_MS(val_F1, val_P1, scales):
         if sc != 1.0:
             msv_F1, msv_P1 = downsample([val_F1, val_P1], sc)
             msv_F1, msv_P1 = ToCudaVariable([msv_F1, msv_P1], volatile=True)
-            ref[sc] = model.module.Encoder(msv_F1, msv_P1)[0]
         else:
             msv_F1, msv_P1 = ToCudaVariable([val_F1, val_P1], volatile=True)
-            ref[sc] = model.module.Encoder(msv_F1, msv_P1)[0]
-
+        ref[sc] = model.module.Encoder(msv_F1, msv_P1)[0]
     return ref
 
 def Propagate_MS(ref, val_F2, val_P2, scales):
@@ -82,7 +80,7 @@ def Infer_SO(all_F, all_M, num_frames, scales=[0.5, 0.75, 1.0]):
     all_E[:,:,0] = all_M[:,:,0]
 
     ref = Encode_MS(all_F[:,:,0], all_E[:,0,0], scales)
-    for f in range(0, num_frames-1):
+    for f in range(num_frames-1):
         all_E[:,0,f+1] = Propagate_MS(ref, all_F[:,:,f+1], all_E[:,0,f], scales)
 
     return all_E
@@ -100,11 +98,12 @@ def Infer_MO(all_F, all_M, num_frames, num_objects, scales=[0.5, 0.75, 1.0]):
     all_E[:,0,0] = 1-torch.sum(all_M[:,:,0], dim=1)
 
     ref_bg = Encode_MS(all_F[:,:,0], torch.sum(all_E[:,1:,0], dim=1), scales)
-    refs = []
-    for o in range(num_objects):
-        refs.append(Encode_MS(all_F[:,:,0], all_E[:,o+1,0], scales))
+    refs = [
+        Encode_MS(all_F[:, :, 0], all_E[:, o + 1, 0], scales)
+        for o in range(num_objects)
+    ]
 
-    for f in range(0, num_frames-1):
+    for f in range(num_frames-1):
         ### 1 - all 
         all_E[:,0,f+1] = 1-Propagate_MS(ref_bg, all_F[:,:,f+1], torch.sum(all_E[:,1:,f], dim=1), scales)
         for o in range(num_objects):
@@ -121,11 +120,9 @@ def Infer_MO(all_F, all_M, num_frames, num_objects, scales=[0.5, 0.75, 1.0]):
 
 if MO:
     Testset = DAVIS(DAVIS_ROOT, imset='2017/val.txt', multi_object=True)
-    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
 else:
     Testset = DAVIS(DAVIS_ROOT, imset='2016/val.txt')
-    Testloader = data.DataLoader(Testset, batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
-
+Testloader = data.DataLoader(Testset, batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
 model = nn.DataParallel(RGMP())
 if torch.cuda.is_available():
     model.cuda()
@@ -134,7 +131,7 @@ if torch.cuda.is_available():
 model.load_state_dict(torch.load('weights.pth'))
 
 model.eval() # turn-off BN
-for seq, (all_F, all_M, info) in enumerate(Testloader):
+for all_F, all_M, info in Testloader:
     all_F, all_M = all_F[0], all_M[0]
     seq_name = info['name'][0]
     num_frames = info['num_frames'][0]
@@ -145,10 +142,7 @@ for seq, (all_F, all_M, info) in enumerate(Testloader):
     print('{} | num_objects: {}, FPS: {}'.format(seq_name, num_objects, (time.time()-tt)/num_frames))
 
     # Save results for quantitative eval ######################
-    if MO:
-        folder = 'results/MO'
-    else:
-        folder = 'results/SO'    
+    folder = 'results/MO' if MO else 'results/SO'
     test_path = os.path.join(folder, seq_name)
     if not os.path.exists(test_path):
         os.makedirs(test_path)
@@ -157,7 +151,7 @@ for seq, (all_F, all_M, info) in enumerate(Testloader):
         E = all_E[0,:,f].numpy()
         # make hard label
         E = ToLabel(E)
-    
+
         (lh,uh), (lw,uw) = info['pad'] 
         E = E[lh[0]:-uh[0], lw[0]:-uw[0]]
 

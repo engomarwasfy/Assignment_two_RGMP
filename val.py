@@ -13,7 +13,7 @@ if __name__ == '__main__':
     model = RGMP().cuda()
     Testset = DAVIS(DAVIS_ROOT, imset='2017/val.txt')
     Testloader = data.DataLoader(Testset, batch_size=1, shuffle=True, num_workers=1)
-    
+
     best_iou = 0
     writer = SummaryWriter()
     for epoch in np.sort([int(d.split('.')[0]) for d in os.listdir('/content/drive/My Drive/All/omarwasfy/Master/Deep learning applications on image and video segmentation /RGMP/check_points')]):
@@ -28,15 +28,15 @@ if __name__ == '__main__':
         checkpoint = {k: v for k, v in checkpoint['model'].items() if k in state}
         state.update(checkpoint)
         model.load_state_dict(state)
-        if 'optimizer' in checkpoint.keys():
+        if 'optimizer' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr = optimizer.param_groups[0]['lr']
-        if 'pooling_mode' in checkpoint.keys():
+        if 'pooling_mode' in checkpoint:
             POOLING_MODE = checkpoint['pooling_mode']
         del checkpoint
         torch.cuda.empty_cache()
         print('  - complete!')
-    
+
         criterion = torch.nn.BCELoss()
 
         # testing
@@ -46,7 +46,7 @@ if __name__ == '__main__':
             loss = 0
             iOU = 0
             pbar = tqdm.tqdm(total=len(Testloader))
-            for i, (all_F, all_M, info) in enumerate(Testloader):
+            for all_F, all_M, info in Testloader:
                 pbar.update(1)
                 all_F, all_M = all_F[0], all_M[0]
                 seq_name = info['name'][0]
@@ -60,16 +60,19 @@ if __name__ == '__main__':
                 msv_F1, msv_P1, all_M = ToCudaVariable([all_F[:,:,0], all_E[:,0,0], all_M])
                 ms = model.Encoder(msv_F1, msv_P1)[0]
 
-                for f in range(0, all_M.shape[2] - 1):
+                for f in range(all_M.shape[2] - 1):
                     output, ms = Propagate_MS(ms, model, all_F[:,:,f+1], all_E[:,0,f])
                     all_E[:,0,f+1] = output.detach()
-                    loss = loss + criterion(output.permute(1,2,0), all_M[:,0,f+1].float()) / all_M.size(2)
-                iOU = iOU + iou(torch.cat((1-all_E, all_E), dim=1), all_M)
+                    loss += criterion(
+                        output.permute(1, 2, 0), all_M[:, 0, f + 1].float()
+                    ) / all_M.size(2)
+
+                iOU += iou(torch.cat((1-all_E, all_E), dim=1), all_M)
 
             pbar.close()
 
-            loss = loss / len(Testloader)
-            iOU = iOU / len(Testloader)
+            loss /= len(Testloader)
+            iOU /= len(Testloader)
             writer.add_scalar('Val/BCE', loss, epoch)
             writer.add_scalar('Val/IOU', iOU, epoch)
             print('loss: {}'.format(loss))
